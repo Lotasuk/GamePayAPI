@@ -1,6 +1,7 @@
 import re
 from pydantic import BaseModel, field_validator
 from app.exc.bad_email import BadEmail
+from typing import Optional
 
 class AccessRequest(BaseModel):
     email: str

@@ -1,4 +1,4 @@
-from typing import List, Sequence
+from typing import Optional, List, Sequence
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,11 +24,16 @@ class UserService:
 
     async def register(self, register_request: AccessRequest) -> Result[None]:
         try:
-            inserted = await self._repo.create(Email=register_request.email, PasswordHash=hash_password(register_request.password))
+            inserted = await self._repo.create(
+                Email=register_request.email,
+                PasswordHash=hash_password(register_request.password),
+                Username=None  # Явно указываем None для username
+            )
             await self._repo.commit()
         except IntegrityError as e:
             return err(str(e))
         return success("Пользователь успешно зарегистрирован.")
+
 
     async def auth(self, request: AccessRequest) -> Result[str]:
         authenticated = await self._repo.authenticate_user(request.email, request.password)

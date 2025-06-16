@@ -1,4 +1,9 @@
-from sqlalchemy import Column, Integer, String, Text, DECIMAL, DATE, Boolean, ForeignKey
+from typing import Optional, List 
+from datetime import datetime, timezone
+from sqlalchemy import Column, Integer, String, Text, DECIMAL, DATE, Boolean, ForeignKey, DateTime
+from sqlalchemy.dialects.postgresql import UUID
+import uuid
+from sqlalchemy.types import LargeBinary
 from sqlalchemy.orm import relationship, sessionmaker, Mapped, mapped_column
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -8,15 +13,20 @@ class User(Base):
     __tablename__ = 'Users'
 
     UserID: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    Username: Mapped[str] = mapped_column(String)
+    Username: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     PasswordHash: Mapped[str] = mapped_column(String)
     Email: Mapped[str] = mapped_column(String)
-    RegistrationDate: Mapped[DATE] = mapped_column(DATE)
+    
+    
 
     orders: Mapped[list['Order']] = relationship('Order', back_populates='user')
     gameAccount: Mapped['GameAccount'] = relationship('GameAccount', back_populates='user', uselist=False)
     purchaseHistory: Mapped[list['PurchaseHistory']] = relationship('PurchaseHistory', back_populates='user')
     notifications: Mapped[list['Notification']] = relationship('Notification', back_populates='user')
+    chatsAsUser1: Mapped[list['Chat']] = relationship('Chat', foreign_keys='Chat.User1ID', back_populates='user1')
+    chatsAsUser2: Mapped[list['Chat']] = relationship('Chat', foreign_keys='Chat.User2ID', back_populates='user2')
+    sentMessages: Mapped[list['Message']] = relationship('Message', foreign_keys='Message.SenderID', back_populates='sender')
+
 
 class Category(Base):
     __tablename__ = 'Categories'
@@ -105,3 +115,29 @@ class Notification(Base):
 
     user: Mapped['User'] = relationship('User', back_populates='notifications')
 
+class Chat(Base):
+    __tablename__ = 'Chats'
+
+    ChatID: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    User1ID: Mapped[int] = mapped_column(Integer, ForeignKey('Users.UserID'), nullable=False)
+    User2ID: Mapped[int] = mapped_column(Integer, ForeignKey('Users.UserID'), nullable=False)
+    CreatedAt: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    # Связи
+    user1: Mapped['User'] = relationship('User', foreign_keys=[User1ID], back_populates='chatsAsUser1')
+    user2: Mapped['User'] = relationship('User', foreign_keys=[User2ID], back_populates='chatsAsUser2')
+    messages: Mapped[list['Message']] = relationship('Message', back_populates='chat')
+
+class Message(Base):
+    __tablename__ = 'Messages'
+
+    MessageID: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    ChatID: Mapped[int] = mapped_column(Integer, ForeignKey('Chats.ChatID'), nullable=False)
+    SenderID: Mapped[int] = mapped_column(Integer, ForeignKey('Users.UserID'), nullable=False)
+    Content: Mapped[str] = mapped_column(Text, nullable=False)
+    SentAt: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    IsRead: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # Связи
+    chat: Mapped['Chat'] = relationship('Chat', back_populates='messages')
+    sender: Mapped['User'] = relationship('User', foreign_keys=[SenderID], back_populates='sentMessages')
